@@ -124,3 +124,28 @@ crons:
     drupal:
         spec: '*/20 * * * *'
         cmd: 'cd web ; drush core-cron'
+    update:
+        # Run the 'update' source operation every day at 1:00am.
+        spec: '0 1 * * *'
+        cmd: |
+            set -e
+            if [ "$PLATFORM_BRANCH" = update-dependencies ]; then
+                platform environment:sync code data --no-wait --yes
+                platform source-operation:run update --no-wait --yes
+            fi
+
+variables:
+    env:
+        COMPOSER_DIFF: !include 'composer-diff.json'
+
+source:
+    operations:
+        # Update Composer dependencies and commit the diff to a file.
+        update:
+            command: |
+                set -e
+                composer install
+                composer outdated --format json > composer-diff.json
+                composer update
+                git add composer.lock composer-diff.json
+                git commit -m "Update Composer dependencies and commit the diff to composer-diff.json."
